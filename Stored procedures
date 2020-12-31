@@ -1,0 +1,104 @@
+DROP procedure getCurrentStock;
+CREATE PROCEDURE getCurrentStock(
+in p_product_id int(11),
+in p_finacial_id int(11),
+out p_current_stock double)
+BEGIN
+DECLARE opening_stock double;
+DECLARE purchase_qty double;
+DECLARE invoice_qty double;
+DECLARE purchase_return_qty double;
+DECLARE sales_return_qty double;
+
+SELECT
+	ifnull(sum(opening_stock),0) INTO opening_stock
+FROM
+	opening_stock
+WHERE
+	item_id = p_product_id
+AND financial_year_id = p_finacial_id;
+
+SELECT
+	ifnull(sum(qty),0) INTO purchase_qty
+FROM
+	purchase_product
+LEFT JOIN purchase ON purchase.purchase_id = purchase_product.purchase_id
+WHERE
+	purchase_product.item_id = p_product_id AND purchase.financial_year_id = p_finacial_id;
+
+SELECT
+	ifnull(sum(qty),0) INTO invoice_qty
+FROM
+	invoice_items
+LEFT JOIN invoice ON invoice.invoice_id = invoice_items.invoice_id
+WHERE
+	invoice_items.item_id = p_product_id AND invoice.financial_year_id = p_finacial_id;
+
+SELECT
+	ifnull(sum(qty),0) INTO sales_return_qty
+FROM
+	sales_return_items
+LEFT JOIN sales_return ON sales_return.sales_return_id = sales_return_items.sales_return_id
+WHERE
+	sales_return_items.item_id = p_product_id AND sales_return.financial_year_id = p_finacial_id;
+
+SELECT
+	ifnull(sum(qty),0) INTO purchase_return_qty
+FROM
+	purchase_return_items
+LEFT JOIN purchase_return ON purchase_return.purchase_return_id = purchase_return_items.purchase_return_id
+WHERE
+	purchase_return_items.item_id = p_product_id AND purchase_return.financial_year_id = p_finacial_id;
+
+SET p_current_stock = ((opening_stock + purchase_qty + sales_return_qty) - (invoice_qty + purchase_return_qty));
+
+END
+
+
+CALL getCurrentStock(21,1, @stock);
+SELECT @stock as stock;
+
+DB::select('call getCurrentStock(:product_id, @dispatch_stock, @packing_Stock)', [ "product_id" => 1 ]);
+$dispatch_stock = null;
+$packing_Stock = null;
+$selectResult = DB::select('SELECT @dispatch_stock AS dispatch_stock,@packing_Stock AS packing_Stock');
+
+
+DROP procedure getCurrentoutSatnding;
+CREATE PROCEDURE getCurrentoutSatnding(
+in p_party_id int(11),
+in p_finacial_id int(11),
+out p_current_out_standing double)
+BEGIN
+DECLARE opening_amount double;
+DECLARE purchase_amount double;
+DECLARE invoice_amount double;
+
+SELECT
+	ifnull(sum(opening_balance),0) INTO opening_amount
+FROM
+	customer_opening_balance
+WHERE
+	customer_id = p_party_id
+AND financial_year_id = p_finacial_id;
+
+SELECT
+	ifnull(sum(grand_total),0) INTO purchase_amount
+FROM
+	purchase
+WHERE
+	purchase.customer_id = p_party_id AND purchase.financial_year_id = p_finacial_id;
+
+SELECT
+	ifnull(sum(grand_total),0) INTO invoice_amount
+FROM
+	invoice
+WHERE
+	invoice.customer_id = p_party_id AND invoice.financial_year_id = p_finacial_id;
+
+SET p_current_out_standing = ((opening_amount + purchase_amount) - (invoice_amount));
+
+END
+
+CALL getCurrentoutSatnding(21,1,@outstanding);
+SELECT @outstanding as outstanding;
